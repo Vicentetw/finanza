@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { crearInversión } from "@/app/actions/inversiones"
+import { crearInversion } from "@/app/actions/inversiones"
 import { obtenerPlataformas, obtenerInstrumentos, obtenerMonedas } from "@/app/actions/catalogos"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -55,7 +55,7 @@ export default function NuevaInversiónPage() {
     setLoading(true)
 
     try {
-      const result = await crearInversión({
+      const result = await crearInversion({
         plataforma_id: formData.plataforma_id,
         instrumento_id: formData.instrumento_id,
         moneda_id: formData.moneda_id,

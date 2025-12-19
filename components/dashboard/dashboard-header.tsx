@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+// 🔥 BOTÓN DE LOGOUT
+import { logout } from "@/app/actions/auth"; 
 
 interface DashboardHeaderProps {
   saldoTotal: number
@@ -23,6 +25,9 @@ export function DashboardHeader({ saldoTotal, roiTotal, inversionesActivas }: Da
           <Link href="/inversiones/nueva">
             <Button>+ Nueva Inversión</Button>
           </Link>
+          <form action={logout}>
+                    <Button variant="destructive">Cerrar sesión</Button>
+                  </form>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

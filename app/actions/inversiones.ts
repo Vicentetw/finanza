@@ -1,199 +1,128 @@
-"use server"
+"use server";
 
-import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
+import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
 
-// Crear inversión
-export async function crearInversión(formData: {
-  plataforma_id: string
-  instrumento_id: string
-  moneda_id: string
-  fecha_compra: string
-  ppc_promedio: number
-  cantidad: number
-  notas?: string
-}) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error("Not authenticated")
-
-  try {
-    const { data: comision } = await supabase
-      .from("comisiones_plataforma")
-      .select("porcentaje_compra")
-      .eq("plataforma_id", formData.plataforma_id)
-      .eq("instrumento_id", formData.instrumento_id)
-      .single()
-
-    const porcentaje = comision?.porcentaje_compra || 0
-    const comision_compra = formData.ppc_promedio * formData.cantidad * (porcentaje / 100)
-
-    const { data, error } = await supabase
-      .from("inversiones")
-      .insert({
-        usuario_id: user.id,
-        plataforma_id: formData.plataforma_id,
-        instrumento_id: formData.instrumento_id,
-        moneda_id: formData.moneda_id,
-        fecha_compra: formData.fecha_compra,
-        ppc_promedio: formData.ppc_promedio,
-        cantidad: formData.cantidad,
-        comision_compra,
-        estado: "activa",
-        notas: formData.notas,
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    revalidatePath("/dashboard")
-    revalidatePath("/inversiones")
-
-    return { success: true, data }
-  } catch (error) {
-    return { success: false, error: (error as Error).message }
-  }
-}
-
-// Obtener todas las inversiones
+// -----------------------------------------
+// OBTENER TODAS LAS INVERSIONES
+// -----------------------------------------
 export async function obtenerInversiones() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error("Not authenticated")
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("inversiones")
     .select(`
       *,
-      plataformas(nombre),
-      instrumentos(nombre),
-      monedas(codigo_iso, simbolo)
+      instrumentos ( nombre ),
+      plataformas ( nombre ),
+      monedas ( codigo_iso )
     `)
-    .eq("usuario_id", user.id)
-    .order("fecha_compra", { ascending: false })
+    .order("creada_en", { ascending: false });
 
-  if (error) throw error
-  return data
+  if (error) throw error;
+  return data;
 }
 
-// Obtener inversión por ID
+// -----------------------------------------
+// CREAR UNA INVERSIÓN
+// -----------------------------------------
+
+export async function crearInversion(values: any) {
+  const supabase = await createClient();
+
+  try {
+    const { data: authUser } = await supabase.auth.getUser();
+    if (!authUser?.user) {
+      return { success: false, error: "No autenticado" };
+    }
+
+    const { error } = await supabase
+      .from("inversiones")
+      .insert({
+        ...values,
+        usuario_id: authUser.user.id,
+      });
+
+    if (error) {
+      console.error("Error creando inversión:", error);
+      return { success: false, error: error.message };
+    }
+
+    // Revalidamos la cache
+    revalidatePath("/inversiones");
+
+    return { success: true, message: "Inversión creada correctamente" };
+  } catch (err: any) {
+    console.error("Error creando inversión:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+
+// -----------------------------------------
+// ACTUALIZAR UNA INVERSIÓN
+// -----------------------------------------
+export async function actualizarInversion(id: string, values: any) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("inversiones")
+    .update(values)
+    .eq("id", id)
+    .select("*"); // <- Aquí agregamos select para traer todas las columnas
+
+  if (error) {
+    console.error("Error actualizando inversión:", error);
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath(`/inversiones/editar/${id}`);
+  revalidatePath("/inversiones");
+  return { success: true, message: "Inversión actualizada correctamente" };
+}
+
+// -----------------------------------------
+// ELIMINAR UNA INVERSIÓN
+// -----------------------------------------
+export async function eliminarInversion(id: string) {
+  const supabase = await createClient();
+
+  try {
+    const { error } = await supabase
+      .from("inversiones")
+      .delete()
+      .eq("id", id); // <- NO select()
+
+    if (error) {
+      console.error("Error eliminando inversión:", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/inversiones");
+
+    return { success: true, message: "Inversión eliminada correctamente" };
+  } catch (err: any) {
+    console.error("Error eliminando inversión:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// -----------------------------------------
+// OBTENER UNA INVERSIÓN POR ID
+// -----------------------------------------
 export async function obtenerInversionPorId(id: string) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error("Not authenticated")
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("inversiones")
     .select("*")
-    .eq("usuario_id", user.id)
     .eq("id", id)
-    .single()
+    .single();
 
-  if (error) throw error
-  return data
-}
-
-// Actualizar inversión
-export async function actualizarInversion(id: string, formData: any) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error("Not authenticated")
-
-  const { data, error } = await supabase
-    .from("inversiones")
-    .update(formData)
-    .eq("usuario_id", user.id)
-    .eq("id", id)
-    .select()
-    .single()
-
-  if (error) throw error
-
-  revalidatePath("/dashboard")
-  revalidatePath("/inversiones")
-  return { success: true, data }
-}
-
-// Eliminar inversión
-export async function eliminarInversion(id: string) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error("Not authenticated")
-
-  const { error } = await supabase
-    .from("inversiones")
-    .delete()
-    .eq("usuario_id", user.id)
-    .eq("id", id)
-
-  if (error) throw error
-
-  revalidatePath("/dashboard")
-  revalidatePath("/inversiones")
-  return { success: true }
-}
-
-// Vender inversión
-export async function venderInversion(formData: {
-  inversion_id: string
-  cantidad_vendida: number
-  precio_venta: number
-  fecha_venta: string
-}) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error("Not authenticated")
-
-  try {
-    const { data: inversion, error: getError } = await supabase
-      .from("inversiones")
-      .select("*")
-      .eq("id", formData.inversion_id)
-      .eq("usuario_id", user.id)
-      .single()
-
-    if (getError || !inversion) throw new Error("Investment not found")
-
-    const { data: comision } = await supabase
-      .from("comisiones_plataforma")
-      .select("porcentaje_venta")
-      .eq("plataforma_id", inversion.plataforma_id)
-      .eq("instrumento_id", inversion.instrumento_id)
-      .single()
-
-    const porcentaje = comision?.porcentaje_venta || 0
-    const comision_venta = formData.precio_venta * formData.cantidad_vendida * (porcentaje / 100)
-
-    const { error: updateError } = await supabase
-      .from("inversiones")
-      .update({
-        fecha_venta: formData.fecha_venta,
-        precio_venta: formData.precio_venta,
-        cantidad_vendida: formData.cantidad_vendida,
-        comision_venta,
-        estado: "finalizada",
-      })
-      .eq("id", formData.inversion_id)
-
-    if (updateError) throw updateError
-
-    revalidatePath("/dashboard")
-    revalidatePath("/inversiones")
-    return { success: true }
-  } catch (error) {
-    return { success: false, error: (error as Error).message }
+  if (error) {
+    console.error("Error obteniendo inversión:", error);
+    return null;
   }
+
+  return data;
 }

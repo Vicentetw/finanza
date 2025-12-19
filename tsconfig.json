@@ -34,7 +34,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
-  ],
+, "app/movimientos/page.tsx.old", "app/actions/movimientos.ts.old"  ],
   "exclude": [
     "node_modules"
   ]

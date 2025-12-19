@@ -1,83 +1,62 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { obtenerMovimientos } from "@/app/actions/movimientos"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { obtenerMovimientos, eliminarMovimiento } from "@/lib/client/movimientos"
 import Link from "next/link"
-import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card"
+import { Table, TableHead, TableRow, TableHeader, TableCell, TableBody } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
 import BackButton from "@/components/BackButton"
 
 export default function MovimientosPage() {
-  const [movimientos, setMovimientos] = useState<any[]>([])
+  const { toast } = useToast()
+  const [movimientos, setMovimientos] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const data = await obtenerMovimientos()
-        setMovimientos(data)
-      } catch (error) {
-        console.error("Error loading movements:", error)
-      } finally {
-        setLoading(false)
-      }
+  const cargar = async () => {
+    setLoading(true)
+    try {
+      const data = await obtenerMovimientos()
+      setMovimientos(data)
+    } catch (e) {
+      toast({ title: "Error", description: "No se pudieron cargar los movimientos", variant: "destructive" })
     }
-
-    loadData()
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Cargando movimientos...</p>
-      </div>
-    )
+    setLoading(false)
   }
 
-  const totalIngresos = movimientos.filter((m) => m.tipo === "ingreso").reduce((sum, m) => sum + m.monto, 0)
+  useEffect(() => { cargar() }, [])
 
-  const totalEgresos = movimientos.filter((m) => m.tipo === "egreso").reduce((sum, m) => sum + m.monto, 0)
+  const handleEliminar = async (id: string) => {
+    if (!confirm("¿Eliminar movimiento?")) return
+
+    const res = await eliminarMovimiento(id)
+    if (res.success) {
+      toast({ title: "Movimiento eliminado" })
+      cargar()
+    } else {
+      toast({ title: "Error", description: res.error, variant: "destructive" })
+    }
+  }
+
+  if (loading) return <p>Cargando movimientos...</p>
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
+    <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-slate-50 to-slate-100">
+      <BackButton href="/" />
+
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+
+        <div className="flex justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Movimientos</h1>
+            <h1 className="text-3xl font-bold">Movimientos</h1>
             <p className="text-gray-500">Historial de ingresos y egresos</p>
           </div>
+
           <Link href="/movimientos/nuevo">
             <Button>+ Nuevo Movimiento</Button>
           </Link>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Ingresos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <ArrowDownLeft className="w-5 h-5 text-green-600" />
-                <div className="text-2xl font-bold text-green-600">${totalIngresos.toLocaleString("es-AR")}</div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Egresos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <ArrowUpRight className="w-5 h-5 text-red-600" />
-                <div className="text-2xl font-bold text-red-600">${totalEgresos.toLocaleString("es-AR")}</div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         <Card>
@@ -85,46 +64,43 @@ export default function MovimientosPage() {
             <CardTitle>Listado de Movimientos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Monto</TableHead>
-                    <TableHead>Moneda</TableHead>
-                    <TableHead>Descripción</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Monto</TableHead>
+                  <TableHead>Moneda</TableHead>
+                  <TableHead>Descripción</TableHead>
+                  <TableHead>Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+
+              <TableBody>
+                {movimientos.map((m: any) => (
+                  <TableRow key={m.id}>
+                    <TableCell>{new Date(m.fecha).toLocaleDateString("es-AR")}</TableCell>
+                    <TableCell>
+                      <Badge className={m.tipo === "ingreso" ? "bg-green-200 text-green-700" : "bg-red-200 text-red-700"}>
+                        {m.tipo}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>${m.monto.toLocaleString("es-AR")}</TableCell>
+                    <TableCell>{m.monedas?.codigo_iso}</TableCell>
+                    <TableCell>{m.descripción || "-"}</TableCell>
+                    <TableCell className="flex gap-2">
+                      <Link href={`/movimientos/editar/${m.id}`}>
+                        <Button variant="outline" size="sm">Editar</Button>
+                      </Link>
+                      <Button size="sm" variant="destructive" onClick={() => handleEliminar(m.id)}>
+                        Eliminar
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {movimientos.map((mov) => (
-                    <TableRow key={mov.id}>
-                      <TableCell>{new Date(mov.fecha).toLocaleDateString("es-AR")}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={mov.tipo === "ingreso" ? "default" : "secondary"}
-                          className={mov.tipo === "ingreso" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
-                        >
-                          {mov.tipo === "ingreso" ? "Ingreso" : "Egreso"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell
-                        className={
-                          mov.tipo === "ingreso" ? "text-green-600 font-semibold" : "text-red-600 font-semibold"
-                        }
-                      >
-                        {mov.tipo === "ingreso" ? "+" : "-"}${mov.monto.toLocaleString("es-AR")}
-                      </TableCell>
-                      <TableCell>{mov.monedas?.código_iso}</TableCell>
-                      <TableCell>{mov.descripción || "-"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            <div className="flex gap-4">
-                <BackButton href="/" />
-              </div>
+                ))}
+              </TableBody>
+
+            </Table>
           </CardContent>
         </Card>
       </div>

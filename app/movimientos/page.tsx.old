@@ -1,0 +1,134 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { obtenerMovimientos } from "@/app/actions/movimientos"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
+import BackButton from "@/components/BackButton"
+
+export default function MovimientosPage() {
+  const [movimientos, setMovimientos] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const data = await obtenerMovimientos()
+        setMovimientos(data)
+      } catch (error) {
+        console.error("Error loading movements:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Cargando movimientos...</p>
+      </div>
+    )
+  }
+
+  const totalIngresos = movimientos.filter((m) => m.tipo === "ingreso").reduce((sum, m) => sum + m.monto, 0)
+
+  const totalEgresos = movimientos.filter((m) => m.tipo === "egreso").reduce((sum, m) => sum + m.monto, 0)
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Movimientos</h1>
+            <p className="text-gray-500">Historial de ingresos y egresos</p>
+          </div>
+          <Link href="/movimientos/nuevo">
+            <Button>+ Nuevo Movimiento</Button>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Ingresos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <ArrowDownLeft className="w-5 h-5 text-green-600" />
+                <div className="text-2xl font-bold text-green-600">${totalIngresos.toLocaleString("es-AR")}</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Egresos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <ArrowUpRight className="w-5 h-5 text-red-600" />
+                <div className="text-2xl font-bold text-red-600">${totalEgresos.toLocaleString("es-AR")}</div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Listado de Movimientos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Monto</TableHead>
+                    <TableHead>Moneda</TableHead>
+                    <TableHead>Descripción</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {movimientos.map((mov) => (
+                    <TableRow key={mov.id}>
+                      <TableCell>{new Date(mov.fecha).toLocaleDateString("es-AR")}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={mov.tipo === "ingreso" ? "default" : "secondary"}
+                          className={mov.tipo === "ingreso" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                        >
+                          {mov.tipo === "ingreso" ? "Ingreso" : "Egreso"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell
+                        className={
+                          mov.tipo === "ingreso" ? "text-green-600 font-semibold" : "text-red-600 font-semibold"
+                        }
+                      >
+                        {mov.tipo === "ingreso" ? "+" : "-"}${mov.monto.toLocaleString("es-AR")}
+                      </TableCell>
+                      <TableCell>{mov.monedas?.codigo_iso}</TableCell>
+                      <TableCell>{mov.descripción || "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            
+          </CardContent>
+        </Card>
+        <div className="flex gap-4">
+                <BackButton href="/" />
+              </div>
+      </div>
+    </div>
+  )
+}

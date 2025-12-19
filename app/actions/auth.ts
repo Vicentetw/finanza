@@ -33,8 +33,8 @@ export async function signIn(email: string, password: string) {
   redirect("/dashboard");
 }
 
-export async function signOut() {
-  const supabase = createClient();
+export async function logout() {
+  const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/auth/login");
 }

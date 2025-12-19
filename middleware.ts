@@ -1,8 +1,7 @@
-// middleware.ts
 import { createServerClient } from "@supabase/ssr";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: Request) {
+export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
 
   createServerClient(
@@ -10,12 +9,16 @@ export async function middleware(request: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name) => request.cookies.get(name)?.value,
+        get: (name) => request.cookies.get(name)?.value ?? null,
         set: (name, value, options) => {
-          response.cookies.set(name, value, options);
+          try {
+            response.cookies.set(name, value, options as any);
+          } catch {}
         },
         remove: (name, options) => {
-          response.cookies.set(name, "", options);
+          try {
+            response.cookies.delete(name);
+          } catch {}
         },
       },
     }
@@ -24,6 +27,7 @@ export async function middleware(request: Request) {
   return response;
 }
 
+// ❗❗ IMPORTANTÍSIMO: NO INTERCEPTAR /api
 export const config = {
-  matcher: ["/dashboard/:path*", "/api/:path*"],
+  matcher: ["/dashboard/:path*", "/admin/:path*"],
 };
